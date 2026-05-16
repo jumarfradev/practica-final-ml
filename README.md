@@ -3,6 +3,7 @@
 > Sistema automático de clasificación binaria sobre cancelaciones de reservas hoteleras.
 > Máster en IA, Cloud Computing y DevOps · PontIA.tech · 2026
 
+[![CI](https://github.com/TU_USUARIO/practica-final-ml/actions/workflows/ci.yml/badge.svg)]
 ---
 
 ## Autores
@@ -185,9 +186,50 @@ Los de `notebooks/finales/` son las versiones presentables para la defensa.
 - **Deep Learning:** tensorflow, keras
 - **Gestión de experimentos:** mlflow _(bonus)_
 - **Entorno y dependencias:** uv, Python 3.11
+- **Calidad de código y DevOps** Black + Ruff (formateo y linting), pre-commit (hooks locales), GitHub Actions (CI: verificación automática en cada push)
 
 ---
+
+## Desarrollo
+
+Si vas a contribuir al código, las herramientas de calidad están configuradas
+automáticamente. Aquí algunos comandos útiles:
+
+### Verificar formato y linting
+
+```bash
+# Linter (detecta problemas)
+ruff check .
+
+# Formateador (cambia archivos)
+black .
+ruff format .
+
+# Ejecutar todos los hooks de pre-commit manualmente
+pre-commit run --all-files
+```
+
+### Verificar que las dependencias se instalan limpias
+
+```bash
+python -c "import pandas, sklearn, tensorflow, xgboost, lightgbm, keras, mlflow; print('OK')"
+```
+
+### Pre-commit hooks
+
+Tras clonar el repo, ejecuta una vez:
+
+```bash
+pre-commit install
+```
+
+A partir de ahí, cada `git commit` ejecutará automáticamente los checks de calidad.
+
+---
+
 ## Cómo contribuir
 
 Si trabajas en este proyecto, lee primero la [guía de contribución](CONTRIBUTING.md).
 Define el flujo de ramas, convenciones de commits y cómo abrir Pull Requests.
+
+---
