@@ -1,0 +1,30 @@
+# === Análisis y manipulación de datos ===
+numpy==1.26.4
+pandas==2.2.3
+
+# === Visualización ===
+matplotlib==3.10.3
+seaborn==0.13.2
+plotly==6.1.2
+
+# === Machine Learning clásico ===
+scikit-learn==1.6.1
+xgboost==3.0.2
+lightgbm==4.6.0
+
+# === Deep Learning ===
+tensorflow==2.19.0
+keras==3.10.0
+
+# === Notebooks ===
+jupyter==1.1.1
+ipykernel==6.29.5
+
+# === Persistencia de modelos ===
+joblib==1.5.1
+
+# === Gestión de experimentos (bonus) ===
+mlflow==2.22.0
+
+# === Utilidades de progreso ===
+tqdm==4.67.1
