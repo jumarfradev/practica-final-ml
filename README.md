@@ -3,7 +3,6 @@
 > Sistema automático de clasificación binaria sobre cancelaciones de reservas hoteleras.
 > Máster en IA, Cloud Computing y DevOps · PontIA.tech · 2026
 
-[![CI](https://github.com/TU_USUARIO/practica-final-ml/actions/workflows/ci.yml/badge.svg)]
 ---
 
 ## Autores
