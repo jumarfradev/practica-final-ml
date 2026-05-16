@@ -5,7 +5,7 @@
 
 ---
 
-## 👥 Autores
+## Autores
 
 - **Juan Martínez Fraile** — Linkedin: https://www.linkedin.com/in/juan-martinez-fraile/
 - **[Nombre de tu pareja]** — [email pareja]
@@ -14,7 +14,7 @@
 
 ---
 
-## 🎯 Descripción del problema
+## Descripción del problema
 
 Este proyecto resuelve un problema de **clasificación binaria** en el sector hotelero:
 predecir si una reserva será cancelada (`is_canceled = 1`) o se completará (`is_canceled = 0`)
@@ -39,7 +39,7 @@ o reasignar habitaciones a tiempo.
 
 ---
 
-## 📁 Estructura del proyecto
+## Estructura del proyecto
 
 ```
 practica-final-ml/
@@ -80,7 +80,7 @@ practica-final-ml/
 
 ---
 
-## 🛠️ Requisitos e instalación
+## Requisitos e instalación
 
 ### Requisitos previos
 
@@ -117,7 +117,7 @@ python -c "import pandas, sklearn, tensorflow, xgboost; print('OK')"
 
 ---
 
-## 🚀 Cómo ejecutar el proyecto
+## Cómo ejecutar el proyecto
 
 > _TODO: completar cuando el pipeline esté implementado_
 
@@ -141,7 +141,7 @@ Los de `notebooks/finales/` son las versiones presentables para la defensa.
 
 ---
 
-## 👤 Roles del equipo
+## Roles del equipo
 
 > _TODO: completar tras acordar el reparto con la pareja_
 
@@ -152,7 +152,7 @@ Los de `notebooks/finales/` son las versiones presentables para la defensa.
 
 ---
 
-## 📊 Resultados y conclusiones
+## Resultados y conclusiones
 
 > _TODO: completar al finalizar la fase de modelado_
 
@@ -170,15 +170,15 @@ Los de `notebooks/finales/` son las versiones presentables para la defensa.
 
 ---
 
-## 📚 Documentación adicional
+## Documentación adicional
 
-- 📄 **Informe final completo:** [`docs/informe_final.md`](docs/informe_final.md)
-- 📓 **Análisis exploratorio:** [`notebooks/finales/eda_final.ipynb`](notebooks/finales/eda_final.ipynb)
-- 📊 **Comparativa de modelos:** [`notebooks/finales/comparativa_modelos.ipynb`](notebooks/finales/comparativa_modelos.ipynb)
+- **Informe final completo:** [`docs/informe_final.md`](docs/informe_final.md)
+- **Análisis exploratorio:** [`notebooks/finales/eda_final.ipynb`](notebooks/finales/eda_final.ipynb)
+- **Comparativa de modelos:** [`notebooks/finales/comparativa_modelos.ipynb`](notebooks/finales/comparativa_modelos.ipynb)
 
 ---
 
-## 🧪 Tecnologías utilizadas
+## Tecnologías utilizadas
 
 - **Datos y análisis:** pandas, numpy, matplotlib, seaborn, plotly
 - **Modelos clásicos:** scikit-learn, xgboost, lightgbm
@@ -187,3 +187,7 @@ Los de `notebooks/finales/` son las versiones presentables para la defensa.
 - **Entorno y dependencias:** uv, Python 3.11
 
 ---
+## Cómo contribuir
+
+Si trabajas en este proyecto, lee primero la [guía de contribución](CONTRIBUTING.md).
+Define el flujo de ramas, convenciones de commits y cómo abrir Pull Requests.
