@@ -1,0 +1,35 @@
+# Configuración de pre-commit hooks
+# Ejecuta black y ruff automáticamente antes de cada commit.
+# Documentación: https://pre-commit.com/
+
+repos:
+  # Hooks básicos de calidad: trailing whitespace, EOF, YAML/JSON válidos...
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=20000']  # Avisa si añades archivos > 20 MB
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+
+  # Black: formateador de Python
+  - repo: https://github.com/psf/black
+    rev: 26.3.1
+    hooks:
+      - id: black
+        language_version: python3.11
+
+  # Ruff: linter (y formateador opcional)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.13
+    hooks:
+      - id: ruff
+        args: [--fix]  # Auto-corrige lo que pueda
+      - id: ruff-format
+
+# No correr estos hooks en notebooks (tienen su propia lógica)
+exclude: '\.ipynb$|^env-pontia-ml/'

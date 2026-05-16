@@ -28,3 +28,8 @@ mlflow==2.22.0
 
 # === Utilidades de progreso ===
 tqdm==4.67.1
+
+# === Calidad de código (DevOps) ===
+black==26.3.1
+ruff==0.15.13
+pre-commit==4.6.0
