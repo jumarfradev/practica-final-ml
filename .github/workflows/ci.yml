@@ -1,0 +1,52 @@
+name: CI
+
+# Cuándo se dispara este workflow
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Permite lanzarlo manualmente desde la pestaña Actions de GitHub
+  workflow_dispatch:
+
+jobs:
+  quality-checks:
+    name: Quality checks (lint, format, imports)
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descarga el código del repo dentro de la máquina virtual
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Configura Python 3.11
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # 3. Instala uv (gestor que estamos usando)
+      - name: Install uv
+        run: pip install uv
+
+      # 4. Instala todas las dependencias desde requirements.txt
+      - name: Install dependencies
+        run: uv pip install --system -r requirements.txt
+
+      # 5. Verifica que las librerías clave se importan correctamente
+      - name: Verify imports
+        run: |
+          python -c "import pandas, sklearn, tensorflow, xgboost, lightgbm, keras, mlflow; print('All imports OK')"
+
+      # 6. Linter Ruff (debe pasar)
+      - name: Lint with Ruff
+        run: ruff check .
+
+      # 7. Formato Black (debe coincidir)
+      - name: Check formatting with Black
+        run: black --check .
+
+      # 8. Formato Ruff (debe coincidir)
+      - name: Check formatting with Ruff
+        run: ruff format --check .
