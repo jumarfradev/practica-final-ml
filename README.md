@@ -7,7 +7,7 @@
 
 ## 👥 Autores
 
-- **Juan Martínez Fraile** — [Linkedin: https://www.linkedin.com/in/juan-martinez-fraile/]
+- **Juan Martínez Fraile** — Linkedin: https://www.linkedin.com/in/juan-martinez-fraile/
 - **[Nombre de tu pareja]** — [email pareja]
 
 > _Roles y reparto de trabajo detallados en la sección [Roles del equipo](#-roles-del-equipo)._
