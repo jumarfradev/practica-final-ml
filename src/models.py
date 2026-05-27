@@ -24,6 +24,7 @@ from pathlib import Path
 import mlflow
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -125,3 +126,85 @@ def imprimir_metricas(metricas: dict[str, float], nombre_modelo: str = "") -> No
     print("=" * 60)
     for nombre, valor in metricas.items():
         print(f"  {nombre:12s}: {valor:.4f}")
+
+
+# ============================================================================
+# Modelo 1: LogisticRegression
+# ============================================================================
+
+
+def entrenar_logistic_regression(
+    X_train: np.ndarray,
+    y_train: pd.Series,
+    X_test: np.ndarray,
+    y_test: pd.Series,
+    max_iter: int = 1000,
+    C: float = 1.0,
+    class_weight: str | None = None,
+    random_state: int = SEED,
+    log_en_mlflow: bool = True,
+) -> tuple[LogisticRegression, dict[str, float]]:
+    """Entrena un modelo de regresion logistica y registra en MLflow.
+
+    La regresion logistica es nuestro modelo baseline: simple, rapido,
+    interpretable. Capta solo relaciones lineales entre features y target.
+
+    Args:
+        X_train: Features de entrenamiento (ya preprocesadas).
+        y_train: Target de entrenamiento.
+        X_test: Features de test.
+        y_test: Target de test.
+        max_iter: Iteraciones maximas del optimizador. Defaults to 1000.
+        C: Inverso de la fuerza de regularizacion. Valores mas pequenos =
+            mas regularizacion. Defaults to 1.0.
+        class_weight: Si 'balanced', penaliza mas los errores en la clase
+            minoritaria. None = sin balanceo. Defaults to None.
+        random_state: Semilla para reproducibilidad. Defaults to SEED.
+        log_en_mlflow: Si True, registra el experimento en MLflow.
+            Defaults to True.
+
+    Returns:
+        tuple: (modelo_entrenado, dict_de_metricas).
+
+    Example:
+        >>> modelo, metricas = entrenar_logistic_regression(
+        ...     X_train, y_train, X_test, y_test
+        ... )
+        >>> metricas['roc_auc']
+        0.84xx
+    """
+    nombre_modelo = "LogisticRegression"
+    if class_weight == "balanced":
+        nombre_modelo += "_balanced"
+
+    if log_en_mlflow:
+        mlflow.start_run(run_name=nombre_modelo)
+        mlflow.log_params(
+            {
+                "model_type": "LogisticRegression",
+                "max_iter": max_iter,
+                "C": C,
+                "class_weight": str(class_weight),
+                "random_state": random_state,
+            }
+        )
+
+    modelo = LogisticRegression(
+        max_iter=max_iter,
+        C=C,
+        class_weight=class_weight,
+        random_state=random_state,
+    )
+    modelo.fit(X_train, y_train)
+
+    y_pred = modelo.predict(X_test)
+    y_pred_proba = modelo.predict_proba(X_test)[:, 1]
+
+    metricas = calcular_metricas(y_test, y_pred, y_pred_proba)
+
+    if log_en_mlflow:
+        mlflow.log_metrics(metricas)
+        mlflow.sklearn.log_model(modelo, "model")
+        mlflow.end_run()
+
+    return modelo, metricas
