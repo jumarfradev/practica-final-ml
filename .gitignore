@@ -53,3 +53,7 @@ outputs/*.html
 # === MLflow (por si lo añadimos como bonus) ===
 mlruns/
 mlartifacts/
+
+# MLflow tracking
+mlruns/
+mlflow.db
