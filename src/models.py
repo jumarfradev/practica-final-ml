@@ -34,6 +34,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.tree import DecisionTreeClassifier
+from xgboost import XGBClassifier
 
 # ============================================================================
 # Constantes del módulo
@@ -371,6 +372,104 @@ def entrenar_random_forest(
         class_weight=class_weight,
         n_jobs=n_jobs,
         random_state=random_state,
+    )
+    modelo.fit(X_train, y_train)
+
+    y_pred = modelo.predict(X_test)
+    y_pred_proba = modelo.predict_proba(X_test)[:, 1]
+
+    metricas = calcular_metricas(y_test, y_pred, y_pred_proba)
+
+    if log_en_mlflow:
+        mlflow.log_metrics(metricas)
+        mlflow.sklearn.log_model(modelo, "model")
+        mlflow.end_run()
+
+    return modelo, metricas
+
+
+# ============================================================================
+# Modelo 4: XGBClassifier (Gradient Boosting)
+# ============================================================================
+
+
+def entrenar_xgboost(
+    X_train: np.ndarray,
+    y_train: pd.Series,
+    X_test: np.ndarray,
+    y_test: pd.Series,
+    n_estimators: int = 300,
+    max_depth: int = 6,
+    learning_rate: float = 0.1,
+    subsample: float = 0.8,
+    colsample_bytree: float = 0.8,
+    scale_pos_weight: float | None = None,
+    n_jobs: int = -1,
+    random_state: int = SEED,
+    log_en_mlflow: bool = True,
+) -> tuple[XGBClassifier, dict[str, float]]:
+    """Entrena un modelo XGBoost (Gradient Boosting) y registra en MLflow.
+
+    XGBoost entrena arboles de forma SECUENCIAL: cada arbol nuevo corrige
+    los errores del anterior (gradient boosting). A diferencia de Random
+    Forest (arboles paralelos e independientes), esta correccion iterativa
+    suele dar el mejor rendimiento en datos tabulares.
+
+    Args:
+        X_train: Features de entrenamiento (ya preprocesadas).
+        y_train: Target de entrenamiento.
+        X_test: Features de test.
+        y_test: Target de test.
+        n_estimators: Numero de arboles (rondas de boosting). Defaults to 300.
+        max_depth: Profundidad maxima de cada arbol. Mas bajo que RF porque
+            el boosting combina muchos arboles debiles. Defaults to 6.
+        learning_rate: Tasa de aprendizaje. Controla cuanto contribuye cada
+            arbol. Valores bajos = aprendizaje mas lento pero mas robusto.
+            Defaults to 0.1.
+        subsample: Fraccion de filas usadas por cada arbol. Introduce
+            aleatoriedad para reducir overfitting. Defaults to 0.8.
+        colsample_bytree: Fraccion de features usadas por cada arbol.
+            Defaults to 0.8.
+        scale_pos_weight: Peso de la clase positiva. Para datasets
+            desbalanceados, se suele poner ratio negativos/positivos.
+            None = sin ajuste. Defaults to None.
+        n_jobs: Cores para paralelizar. -1 usa todos. Defaults to -1.
+        random_state: Semilla para reproducibilidad. Defaults to SEED.
+        log_en_mlflow: Si True, registra el experimento en MLflow.
+            Defaults to True.
+
+    Returns:
+        tuple: (modelo_entrenado, dict_de_metricas).
+    """
+    nombre_modelo = "XGBoost"
+    if scale_pos_weight is not None:
+        nombre_modelo += "_balanced"
+
+    if log_en_mlflow:
+        mlflow.start_run(run_name=nombre_modelo)
+        mlflow.log_params(
+            {
+                "model_type": "XGBClassifier",
+                "n_estimators": n_estimators,
+                "max_depth": max_depth,
+                "learning_rate": learning_rate,
+                "subsample": subsample,
+                "colsample_bytree": colsample_bytree,
+                "scale_pos_weight": str(scale_pos_weight),
+                "random_state": random_state,
+            }
+        )
+
+    modelo = XGBClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        learning_rate=learning_rate,
+        subsample=subsample,
+        colsample_bytree=colsample_bytree,
+        scale_pos_weight=scale_pos_weight,
+        n_jobs=n_jobs,
+        random_state=random_state,
+        eval_metric="logloss",
     )
     modelo.fit(X_train, y_train)
 
