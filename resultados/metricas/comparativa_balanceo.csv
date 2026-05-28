@@ -1,0 +1,4 @@
+,accuracy,precision,recall,f1,roc_auc
+Sin balanceo,0.8703,0.8911,0.7404,0.8088,0.9485
+class_weight,0.8731,0.818,0.8454,0.8315,0.9483
+SMOTE,0.8751,0.8333,0.8285,0.8308,0.9478
