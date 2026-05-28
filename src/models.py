@@ -24,6 +24,7 @@ from pathlib import Path
 import mlflow
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
@@ -280,6 +281,95 @@ def entrenar_decision_tree(
         min_samples_split=min_samples_split,
         min_samples_leaf=min_samples_leaf,
         class_weight=class_weight,
+        random_state=random_state,
+    )
+    modelo.fit(X_train, y_train)
+
+    y_pred = modelo.predict(X_test)
+    y_pred_proba = modelo.predict_proba(X_test)[:, 1]
+
+    metricas = calcular_metricas(y_test, y_pred, y_pred_proba)
+
+    if log_en_mlflow:
+        mlflow.log_metrics(metricas)
+        mlflow.sklearn.log_model(modelo, "model")
+        mlflow.end_run()
+
+    return modelo, metricas
+
+
+# ============================================================================
+# Modelo 3: RandomForestClassifier
+# ============================================================================
+
+
+def entrenar_random_forest(
+    X_train: np.ndarray,
+    y_train: pd.Series,
+    X_test: np.ndarray,
+    y_test: pd.Series,
+    n_estimators: int = 100,
+    max_depth: int | None = 20,
+    min_samples_split: int = 10,
+    min_samples_leaf: int = 5,
+    class_weight: str | None = None,
+    n_jobs: int = -1,
+    random_state: int = SEED,
+    log_en_mlflow: bool = True,
+) -> tuple[RandomForestClassifier, dict[str, float]]:
+    """Entrena un Random Forest y registra en MLflow.
+
+    Random Forest es un ensemble de muchos arboles de decision entrenados
+    sobre muestras aleatorias de filas (bootstrap) y subconjuntos aleatorios
+    de features. La prediccion final es el promedio/votacion de todos los
+    arboles, lo que reduce el overfitting de un arbol individual y mejora
+    la generalizacion.
+
+    Args:
+        X_train: Features de entrenamiento (ya preprocesadas).
+        y_train: Target de entrenamiento.
+        X_test: Features de test.
+        y_test: Target de test.
+        n_estimators: Numero de arboles en el bosque. Defaults to 100.
+        max_depth: Profundidad maxima de cada arbol. Defaults to 20.
+        min_samples_split: Minimo de muestras para dividir un nodo.
+            Defaults to 10.
+        min_samples_leaf: Minimo de muestras en una hoja. Defaults to 5.
+        class_weight: Si 'balanced', penaliza mas los errores en la clase
+            minoritaria. Defaults to None.
+        n_jobs: Numero de cores para paralelizar. -1 usa todos. Defaults to -1.
+        random_state: Semilla para reproducibilidad. Defaults to SEED.
+        log_en_mlflow: Si True, registra el experimento en MLflow.
+            Defaults to True.
+
+    Returns:
+        tuple: (modelo_entrenado, dict_de_metricas).
+    """
+    nombre_modelo = "RandomForest"
+    if class_weight == "balanced":
+        nombre_modelo += "_balanced"
+
+    if log_en_mlflow:
+        mlflow.start_run(run_name=nombre_modelo)
+        mlflow.log_params(
+            {
+                "model_type": "RandomForestClassifier",
+                "n_estimators": n_estimators,
+                "max_depth": max_depth,
+                "min_samples_split": min_samples_split,
+                "min_samples_leaf": min_samples_leaf,
+                "class_weight": str(class_weight),
+                "random_state": random_state,
+            }
+        )
+
+    modelo = RandomForestClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        min_samples_split=min_samples_split,
+        min_samples_leaf=min_samples_leaf,
+        class_weight=class_weight,
+        n_jobs=n_jobs,
         random_state=random_state,
     )
     modelo.fit(X_train, y_train)
