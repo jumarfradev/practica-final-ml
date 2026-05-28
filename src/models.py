@@ -24,6 +24,7 @@ from pathlib import Path
 import mlflow
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -34,6 +35,8 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.tree import DecisionTreeClassifier
+from tensorflow import keras
+from tensorflow.keras import layers
 from xgboost import XGBClassifier
 
 # ============================================================================
@@ -481,6 +484,122 @@ def entrenar_xgboost(
     if log_en_mlflow:
         mlflow.log_metrics(metricas)
         mlflow.sklearn.log_model(modelo, "model")
+        mlflow.end_run()
+
+    return modelo, metricas
+
+
+# ============================================================================
+# Modelo 5: Red Neuronal con Keras
+# ============================================================================
+
+
+def entrenar_red_neuronal(
+    X_train: np.ndarray,
+    y_train: pd.Series,
+    X_test: np.ndarray,
+    y_test: pd.Series,
+    capas_ocultas: tuple[int, ...] = (128, 64, 32),
+    dropout: float = 0.3,
+    learning_rate: float = 0.001,
+    epochs: int = 50,
+    batch_size: int = 256,
+    paciencia: int = 5,
+    random_state: int = SEED,
+    log_en_mlflow: bool = True,
+) -> tuple[keras.Model, dict[str, float]]:
+    """Entrena una red neuronal con Keras y registra en MLflow.
+
+    Red neuronal feed-forward (multicapa) para clasificacion binaria. A
+    diferencia de los modelos basados en arboles, la red aprende ajustando
+    pesos de neuronas mediante descenso de gradiente a lo largo de varias
+    epocas. Necesita features escaladas (ya las tenemos del preprocesamiento).
+
+    Usa EarlyStopping para detener el entrenamiento cuando deja de mejorar,
+    evitando overfitting y ahorrando tiempo.
+
+    Args:
+        X_train: Features de entrenamiento (ya escaladas).
+        y_train: Target de entrenamiento.
+        X_test: Features de test.
+        y_test: Target de test.
+        capas_ocultas: Neuronas en cada capa oculta. Defaults to (128, 64, 32).
+        dropout: Fraccion de neuronas que se "apagan" aleatoriamente en cada
+            paso, para reducir overfitting. Defaults to 0.3.
+        learning_rate: Tasa de aprendizaje del optimizador Adam.
+            Defaults to 0.001.
+        epochs: Numero maximo de pasadas completas por los datos.
+            Defaults to 50.
+        batch_size: Numero de muestras por actualizacion de pesos.
+            Defaults to 256.
+        paciencia: Epocas sin mejora antes de parar (EarlyStopping).
+            Defaults to 5.
+        random_state: Semilla para reproducibilidad. Defaults to SEED.
+        log_en_mlflow: Si True, registra el experimento en MLflow.
+            Defaults to True.
+
+    Returns:
+        tuple: (modelo_entrenado, dict_de_metricas).
+    """
+    tf.random.set_seed(random_state)
+    np.random.seed(random_state)
+
+    n_features = X_train.shape[1]
+
+    if log_en_mlflow:
+        mlflow.start_run(run_name="RedNeuronal")
+        mlflow.log_params(
+            {
+                "model_type": "RedNeuronal_Keras",
+                "capas_ocultas": str(capas_ocultas),
+                "dropout": dropout,
+                "learning_rate": learning_rate,
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "paciencia": paciencia,
+                "random_state": random_state,
+            }
+        )
+
+    modelo = keras.Sequential(name="red_cancelaciones")
+    modelo.add(keras.Input(shape=(n_features,)))
+
+    for n_neuronas in capas_ocultas:
+        modelo.add(layers.Dense(n_neuronas, activation="relu"))
+        modelo.add(layers.Dropout(dropout))
+
+    modelo.add(layers.Dense(1, activation="sigmoid"))
+
+    modelo.compile(
+        optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
+        loss="binary_crossentropy",
+        metrics=["accuracy", keras.metrics.AUC(name="auc")],
+    )
+
+    early_stop = keras.callbacks.EarlyStopping(
+        monitor="val_loss",
+        patience=paciencia,
+        restore_best_weights=True,
+    )
+
+    modelo.fit(
+        X_train,
+        y_train,
+        validation_split=0.2,
+        epochs=epochs,
+        batch_size=batch_size,
+        callbacks=[early_stop],
+        verbose=0,
+    )
+
+    y_pred_proba = modelo.predict(X_test, verbose=0).ravel()
+    y_pred = (y_pred_proba >= 0.5).astype(int)
+
+    metricas = calcular_metricas(y_test, y_pred, y_pred_proba)
+
+    if log_en_mlflow:
+        mlflow.log_metrics(metricas)
+        mlflow.tensorflow.log_model(modelo, "model")
         mlflow.end_run()
 
     return modelo, metricas
