@@ -32,6 +32,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+from sklearn.tree import DecisionTreeClassifier
 
 # ============================================================================
 # Constantes del módulo
@@ -192,6 +193,92 @@ def entrenar_logistic_regression(
     modelo = LogisticRegression(
         max_iter=max_iter,
         C=C,
+        class_weight=class_weight,
+        random_state=random_state,
+    )
+    modelo.fit(X_train, y_train)
+
+    y_pred = modelo.predict(X_test)
+    y_pred_proba = modelo.predict_proba(X_test)[:, 1]
+
+    metricas = calcular_metricas(y_test, y_pred, y_pred_proba)
+
+    if log_en_mlflow:
+        mlflow.log_metrics(metricas)
+        mlflow.sklearn.log_model(modelo, "model")
+        mlflow.end_run()
+
+    return modelo, metricas
+
+
+# ============================================================================
+# Modelo 2: DecisionTreeClassifier
+# ============================================================================
+
+
+def entrenar_decision_tree(
+    X_train: np.ndarray,
+    y_train: pd.Series,
+    X_test: np.ndarray,
+    y_test: pd.Series,
+    max_depth: int | None = 10,
+    min_samples_split: int = 20,
+    min_samples_leaf: int = 10,
+    class_weight: str | None = None,
+    random_state: int = SEED,
+    log_en_mlflow: bool = True,
+) -> tuple[DecisionTreeClassifier, dict[str, float]]:
+    """Entrena un arbol de decision y registra en MLflow.
+
+    El arbol de decision capta relaciones no lineales y umbrales mediante
+    una cascada de preguntas binarias sobre las features. A diferencia de
+    LogisticRegression, puede captar interacciones entre variables.
+
+    Tiende al overfitting si no se limita su crecimiento, por eso usamos
+    hiperparametros que controlan la profundidad y el numero minimo de
+    muestras por nodo.
+
+    Args:
+        X_train: Features de entrenamiento (ya preprocesadas).
+        y_train: Target de entrenamiento.
+        X_test: Features de test.
+        y_test: Target de test.
+        max_depth: Profundidad maxima del arbol. None = sin limite (riesgo
+            de overfitting). Defaults to 10.
+        min_samples_split: Numero minimo de muestras para dividir un nodo.
+            Defaults to 20.
+        min_samples_leaf: Numero minimo de muestras en una hoja.
+            Defaults to 10.
+        class_weight: Si 'balanced', penaliza mas los errores en la clase
+            minoritaria. Defaults to None.
+        random_state: Semilla para reproducibilidad. Defaults to SEED.
+        log_en_mlflow: Si True, registra el experimento en MLflow.
+            Defaults to True.
+
+    Returns:
+        tuple: (modelo_entrenado, dict_de_metricas).
+    """
+    nombre_modelo = "DecisionTree"
+    if class_weight == "balanced":
+        nombre_modelo += "_balanced"
+
+    if log_en_mlflow:
+        mlflow.start_run(run_name=nombre_modelo)
+        mlflow.log_params(
+            {
+                "model_type": "DecisionTreeClassifier",
+                "max_depth": max_depth,
+                "min_samples_split": min_samples_split,
+                "min_samples_leaf": min_samples_leaf,
+                "class_weight": str(class_weight),
+                "random_state": random_state,
+            }
+        )
+
+    modelo = DecisionTreeClassifier(
+        max_depth=max_depth,
+        min_samples_split=min_samples_split,
+        min_samples_leaf=min_samples_leaf,
         class_weight=class_weight,
         random_state=random_state,
     )
