@@ -187,3 +187,109 @@ def optimizar_random_forest(
         mlflow.end_run()
 
     return mejor_modelo, metricas, mejores_params
+
+
+# ============================================================================
+# Optimizacion 3: Red Neuronal (busqueda manual de arquitecturas)
+# ============================================================================
+
+
+def optimizar_red_neuronal(
+    X_train: np.ndarray,
+    y_train: pd.Series,
+    X_test: np.ndarray,
+    y_test: pd.Series,
+    random_state: int = SEED,
+    log_en_mlflow: bool = True,
+) -> tuple[object, dict[str, float], dict]:
+    """Optimiza la red neuronal probando varias arquitecturas (busqueda manual).
+
+    A diferencia de XGBoost y RandomForest (compatibles con RandomizedSearchCV),
+    Keras no se integra directamente con la busqueda de sklearn. Por eso usamos
+    busqueda manual: probamos varias arquitecturas concretas y nos quedamos con
+    la que mejor ROC-AUC obtiene en test.
+
+    Reutiliza entrenar_red_neuronal() de models.py, pasandole distintos
+    hiperparametros en cada prueba.
+
+    Args:
+        X_train: Features de entrenamiento.
+        y_train: Target de entrenamiento.
+        X_test: Features de test.
+        y_test: Target de test.
+        random_state: Semilla para reproducibilidad. Defaults to SEED.
+        log_en_mlflow: Si True, registra cada arquitectura en MLflow.
+            Defaults to True.
+
+    Returns:
+        tuple: (mejor_modelo, mejores_metricas, config_ganadora).
+    """
+    from src.models import entrenar_red_neuronal
+
+    # Arquitecturas a probar (la base + 3 variantes)
+    configuraciones = [
+        {
+            "nombre": "base_128_64_32",
+            "capas_ocultas": (128, 64, 32),
+            "dropout": 0.3,
+            "learning_rate": 0.001,
+        },
+        {
+            "nombre": "profunda_256_128_64_32",
+            "capas_ocultas": (256, 128, 64, 32),
+            "dropout": 0.3,
+            "learning_rate": 0.001,
+        },
+        {
+            "nombre": "ancha_256_128",
+            "capas_ocultas": (256, 128),
+            "dropout": 0.3,
+            "learning_rate": 0.001,
+        },
+        {
+            "nombre": "regularizada_128_64_32",
+            "capas_ocultas": (128, 64, 32),
+            "dropout": 0.4,
+            "learning_rate": 0.0005,
+        },
+    ]
+
+    mejor_roc_auc = -1.0
+    mejor_modelo = None
+    mejores_metricas: dict[str, float] = {}
+    config_ganadora: dict = {}
+
+    for config in configuraciones:
+        print(f"\n{'=' * 60}")
+        print(f"Probando arquitectura: {config['nombre']}")
+        print(
+            f"  capas={config['capas_ocultas']}, dropout={config['dropout']}, lr={config['learning_rate']}"
+        )
+        print("=" * 60)
+
+        modelo, metricas = entrenar_red_neuronal(
+            X_train,
+            y_train,
+            X_test,
+            y_test,
+            capas_ocultas=config["capas_ocultas"],
+            dropout=config["dropout"],
+            learning_rate=config["learning_rate"],
+            random_state=random_state,
+            log_en_mlflow=log_en_mlflow,
+        )
+
+        print(f"  ROC-AUC: {metricas['roc_auc']:.4f}")
+
+        if metricas["roc_auc"] > mejor_roc_auc:
+            mejor_roc_auc = metricas["roc_auc"]
+            mejor_modelo = modelo
+            mejores_metricas = metricas
+            config_ganadora = config
+
+    print(f"\n{'=' * 60}")
+    print(f"MEJOR ARQUITECTURA: {config_ganadora['nombre']}")
+    print(f"  ROC-AUC: {mejor_roc_auc:.4f}")
+    print("=" * 60)
+
+    return mejor_modelo, mejores_metricas, config_ganadora
