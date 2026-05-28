@@ -42,3 +42,4 @@ joblib
 # === FastAPI===
 streamlit
 requests
+imbalanced-learn
