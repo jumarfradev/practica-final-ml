@@ -561,7 +561,6 @@ def entrenar_red_neuronal(
             }
         )
 
-    # Construir la arquitectura
     modelo = keras.Sequential(name="red_cancelaciones")
     modelo.add(keras.Input(shape=(n_features,)))
 
@@ -571,21 +570,18 @@ def entrenar_red_neuronal(
 
     modelo.add(layers.Dense(1, activation="sigmoid"))
 
-    # Compilar
     modelo.compile(
         optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
         loss="binary_crossentropy",
         metrics=["accuracy", keras.metrics.AUC(name="auc")],
     )
 
-    # EarlyStopping: para si no mejora la val_loss
     early_stop = keras.callbacks.EarlyStopping(
         monitor="val_loss",
         patience=paciencia,
         restore_best_weights=True,
     )
 
-    # Entrenar
     modelo.fit(
         X_train,
         y_train,
@@ -596,7 +592,6 @@ def entrenar_red_neuronal(
         verbose=0,
     )
 
-    # Predicciones
     y_pred_proba = modelo.predict(X_test, verbose=0).ravel()
     y_pred = (y_pred_proba >= 0.5).astype(int)
 
