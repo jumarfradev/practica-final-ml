@@ -57,3 +57,5 @@ mlartifacts/
 # MLflow tracking
 mlruns/
 mlflow.db
+models/*.pkl
+models/*.keras

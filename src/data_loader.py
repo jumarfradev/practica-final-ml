@@ -598,3 +598,71 @@ def preparar_datos(
         )
 
     return X_train_transformado, X_test_transformado, y_train, y_test, preprocesador
+
+
+# ============================================================================
+# Top-N + Other con categorias CONGELADAS (para inferencia)
+# ============================================================================
+#
+# Motivacion: aplicar_top_n_other() calcula el top-N sobre el DataFrame que
+# recibe. Eso es correcto en entrenamiento (se calcula sobre todo el dataset),
+# pero INCORRECTO en inferencia: si llega una sola reserva, el "top-30 de 1
+# fila" no coincide con el del entrenamiento. Para inferencia hay que REUSAR
+# exactamente las categorias aprendidas en train. Estas funciones lo permiten.
+
+
+def obtener_categorias_top_n(
+    df: pd.DataFrame,
+) -> dict[str, list]:
+    """Extrae las categorias top-N de country y agent aprendidas del dataset.
+
+    Se llama UNA vez durante el entrenamiento, despues de limpiar el dataset,
+    para "congelar" que categorias se consideran frecuentes. El resultado se
+    persiste junto al modelo para reproducir el mismo top-N en inferencia.
+
+    Args:
+        df (pd.DataFrame): DataFrame limpio (tras limpiar_dataset), antes de
+            aplicar top-N. Debe contener las columnas country y agent.
+
+    Returns:
+        dict[str, list]: Diccionario con dos claves:
+            - "country": lista de los TOP_N_COUNTRIES paises mas frecuentes.
+            - "agent": lista de los TOP_N_AGENTS agentes mas frecuentes
+              (tras convertir a string y rellenar nulos con 'sin_agent').
+    """
+    df = df.copy()
+    df["agent"] = df["agent"].fillna("sin_agent").astype(str)
+
+    top_country = df["country"].value_counts().head(TOP_N_COUNTRIES).index.tolist()
+    top_agent = df["agent"].value_counts().head(TOP_N_AGENTS).index.tolist()
+
+    return {"country": top_country, "agent": top_agent}
+
+
+def aplicar_top_n_other_con_categorias(
+    df: pd.DataFrame,
+    categorias: dict[str, list],
+) -> pd.DataFrame:
+    """Aplica top-N + 'Other' usando categorias YA conocidas (no las recalcula).
+
+    Version de aplicar_top_n_other() pensada para INFERENCIA. En lugar de
+    calcular el top-N sobre el df recibido, usa las categorias congeladas en
+    entrenamiento. Cualquier valor que no este en esas listas pasa a 'Other',
+    exactamente igual que en train.
+
+    Args:
+        df (pd.DataFrame): DataFrame a transformar (datos nuevos / crudos).
+        categorias (dict[str, list]): Diccionario devuelto por
+            obtener_categorias_top_n() durante el entrenamiento.
+
+    Returns:
+        pd.DataFrame: DataFrame con country y agent reducidas igual que en train.
+    """
+    df = df.copy()
+
+    df["country"] = df["country"].where(df["country"].isin(categorias["country"]), other="Other")
+
+    df["agent"] = df["agent"].fillna("sin_agent").astype(str)
+    df["agent"] = df["agent"].where(df["agent"].isin(categorias["agent"]), other="Other")
+
+    return df
