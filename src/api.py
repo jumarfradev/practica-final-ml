@@ -28,13 +28,14 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from src.interpretabilidad import crear_explainer, explicar_reserva
 from src.predictor import cargar_bundle, predecir
 
 # ============================================================================
 # Estado global: el bundle se carga una vez al arrancar
 # ============================================================================
 
-_estado: dict = {"bundle": None}
+_estado: dict = {"bundle": None, "explainer": None}
 
 
 @asynccontextmanager
@@ -45,14 +46,26 @@ async def lifespan(app: FastAPI):
     rendimiento: el .pkl con el RandomForest puede ser grande.
     """
     try:
-        _estado["bundle"] = cargar_bundle()
-        print(f"OK - Modelo cargado: {_estado['bundle']['nombre_modelo']}")
+        bundle = cargar_bundle()
+        _estado["bundle"] = bundle
+        print(f"OK - Modelo cargado: {bundle['nombre_modelo']}")
+        try:
+            if not bundle.get("es_keras"):
+                _estado["explainer"] = crear_explainer(bundle)
+                print("OK - Explainer SHAP creado.")
+            else:
+                _estado["explainer"] = None
+                print("WARN - Modelo Keras: /predict_explain no disponible.")
+        except Exception as e:
+            _estado["explainer"] = None
+            print(f"WARN - No se pudo crear el explainer SHAP: {e}")
     except FileNotFoundError as e:
-        # La API arranca igualmente; /health avisara de que no hay modelo.
         print(f"WARN - No se pudo cargar el modelo: {e}")
         _estado["bundle"] = None
+        _estado["explainer"] = None
     yield
     _estado["bundle"] = None
+    _estado["explainer"] = None
 
 
 app = FastAPI(
@@ -247,3 +260,43 @@ def predict_batch(peticion: PeticionBatch) -> dict:
     ]
 
     return {"n_reservas": len(predicciones), "predicciones": predicciones}
+
+
+class RespuestaExplicacion(BaseModel):
+    """Respuesta de /predict_explain: prediccion + variables influyentes."""
+
+    probabilidad_cancelacion: float
+    prediccion: int
+    etiqueta: str
+    explicacion: list[dict]
+
+
+@app.post("/predict_explain", response_model=RespuestaExplicacion, tags=["prediccion"])
+def predict_explain(reserva: Reserva) -> RespuestaExplicacion:
+    """Predice y EXPLICA: devuelve las variables que mas influyeron (SHAP)."""
+    bundle = _obtener_bundle()
+    explainer = _estado.get("explainer")
+
+    if explainer is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Explainer SHAP no disponible (modelo Keras o error al crearlo).",
+        )
+
+    df = _a_dataframe([reserva])
+
+    try:
+        resultado = predecir(df, bundle)
+        explicacion = explicar_reserva(df, bundle, explainer, top_n=4)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al explicar: {e}") from e
+
+    proba = float(resultado["probabilidad_cancelacion"].iloc[0])
+    pred = int(resultado["prediccion"].iloc[0])
+
+    return RespuestaExplicacion(
+        probabilidad_cancelacion=round(proba, 4),
+        prediccion=pred,
+        etiqueta="Cancela" if pred == 1 else "No cancela",
+        explicacion=explicacion,
+    )
