@@ -43,3 +43,4 @@ joblib
 streamlit
 requests
 imbalanced-learn
+shap
