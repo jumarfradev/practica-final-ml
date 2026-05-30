@@ -3,15 +3,16 @@
 > Sistema automático de clasificación binaria sobre cancelaciones de reservas hoteleras.
 > Máster en IA, Cloud Computing y DevOps · PontIA.tech · 2026
 
-[![CI](https://github.com/TU_USUARIO/practica-final-ml/actions/workflows/ci.yml/badge.svg)]
+[![CI](https://github.com/jumarfradev/practica-final-ml/actions/workflows/ci.yml/badge.svg)](https://github.com/jumarfradev/practica-final-ml/actions/workflows/ci.yml)
+
 ---
 
 ## Autores
 
-- **Juan Martínez Fraile** — Linkedin: https://www.linkedin.com/in/juan-martinez-fraile/
-- **[Nombre de tu pareja]** — [email pareja]
+- **Juan Martínez Fraile** — LinkedIn: <https://www.linkedin.com/in/juan-martinez-fraile/>
+- **David Baos** — GitHub: <https://github.com/davidbaosr>
 
-> _Roles y reparto de trabajo detallados en la sección [Roles del equipo](#-roles-del-equipo)._
+> Roles y reparto de trabajo detallados en la sección [Roles del equipo](#roles-del-equipo).
 
 ---
 
@@ -24,19 +25,77 @@ a partir de información del cliente, características de la reserva y comportam
 ### El dataset
 
 - **Fuente:** dataset `hotel_bookings` proporcionado por el módulo.
-- **Volumen:** 119.390 reservas, 32 variables.
-- **Variable objetivo:** `is_canceled` (binaria, ~37% cancelaciones).
-- **Tipos de variable:** mezcla de numéricas continuas, enteras y categóricas (hotel, mes, país, canal, tipo de cliente, etc.).
+- **Volumen:** 119.390 reservas, 32 variables originales.
+- **Variable objetivo:** `is_canceled` (binaria, ~37% cancelaciones / ~63% no cancelaciones).
+- **Tipos de variable:** numéricas continuas y enteras, y categóricas (hotel, mes, país, canal, tipo de cliente, etc.).
 
 ### Por qué este problema importa
 
-Las cancelaciones de reservas son uno de los principales problemas operativos
-de la industria hotelera: afectan a la planificación de personal, al precio dinámico,
-y al overbooking. Un modelo que anticipe la probabilidad de cancelación
-permite ajustar precios, ofrecer incentivos al cliente para mantener la reserva,
-o reasignar habitaciones a tiempo.
+Las cancelaciones son uno de los principales problemas operativos de la industria hotelera:
+afectan a la planificación de personal, al precio dinámico y al overbooking. Un modelo que
+anticipe la probabilidad de cancelación permite ajustar precios, ofrecer incentivos de
+retención o reasignar habitaciones a tiempo.
 
-> _Detalle completo del problema, análisis exploratorio y diseño en `docs/informe_final.md`._
+> Detalle completo del problema, EDA, diseño y reflexión crítica en `docs/informe_final.docx`.
+
+---
+
+## Arquitectura del sistema
+
+```mermaid
+flowchart LR
+    A[Dataset crudo<br/>hotel_bookings] --> B[trainer.py<br/>pipeline completo]
+    B --> C[best_model.pkl<br/>modelo ganador]
+    B --> D[(MLflow<br/>experimentos)]
+    C --> E[API FastAPI<br/>predict / predict_explain]
+    E --> F[Streamlit<br/>interfaz visual]
+    E --> G[Cliente HTTP<br/>curl, app, etc.]
+
+    style A fill:#E6F1FB,stroke:#185FA5,color:#042C53
+    style B fill:#EAF3DE,stroke:#3B6D11,color:#173404
+    style C fill:#FAEEDA,stroke:#854F0B,color:#412402
+    style D fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
+    style E fill:#FBEAF0,stroke:#993556,color:#4B1528
+    style F fill:#EEEDFE,stroke:#534AB7,color:#26215C
+    style G fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
+```
+
+El flujo va de los datos crudos al modelo servido: `trainer.py` orquesta el entrenamiento
+de los 8 modelos, registra los experimentos en MLflow y persiste el ganador en
+`best_model.pkl`. La API FastAPI carga ese modelo y lo expone vía HTTP, de modo que tanto
+la interfaz Streamlit como cualquier otro cliente pueden pedir predicciones sin conocer el
+modelo por dentro (arquitectura desacoplada frontend/backend).
+
+---
+
+## Resultados y conclusiones
+
+### Métrica principal
+
+Se eligió **ROC-AUC** como métrica principal (y **F1** como secundaria). El dataset está
+moderadamente desbalanceado (63/37), por lo que la *accuracy* sería engañosa (un modelo
+trivial que prediga siempre "no cancela" ya acertaría el 63%). ROC-AUC mide la capacidad de
+ordenar reservas por riesgo de forma independiente del umbral y es robusta al desbalanceo.
+
+### Comparativa de modelos
+
+| Modelo | ROC-AUC | F1 |
+|---|---|---|
+| **RandomForest OPT** (ganador) | **0.9581** | **0.8384** |
+| XGBoost OPT | 0.9577 | 0.8423 |
+| XGBoost | 0.9519 | 0.8332 |
+| RedNeuronal OPT | 0.9512 | 0.8312 |
+| RedNeuronal | 0.9492 | 0.8282 |
+| RandomForest | 0.9485 | 0.8088 |
+| DecisionTree | 0.9285 | 0.7854 |
+| LogisticRegression | 0.9102 | 0.7570 |
+
+### Modelo final
+
+El modelo ganador es un **RandomForest optimizado** (ROC-AUC 0.9581), con hiperparámetros
+`n_estimators=300, max_depth=25, min_samples_split=5, min_samples_leaf=1, max_features=sqrt`,
+hallados mediante `RandomizedSearchCV`. XGBoost optimizado queda a solo cuatro diezmilésimas
+y supera en F1; la elección se sostiene en la métrica principal fijada a priori.
 
 ---
 
@@ -45,38 +104,45 @@ o reasignar habitaciones a tiempo.
 ```
 practica-final-ml/
 ├── .gitignore
-├── README.md                         # Este archivo
-├── requirements.txt                  # Dependencias del proyecto
-├── trainer.py                        # Script principal: orquesta todo el pipeline
+├── README.md                      # Este archivo
+├── CONTRIBUTING.md                # Flujo de ramas y convenciones
+├── requirements.txt               # Dependencias del proyecto
+├── pyproject.toml                 # Configuración de black, ruff, etc.
+├── trainer.py                     # Script principal: orquesta todo el pipeline
 │
+├── .github/                       # Workflows de CI (GitHub Actions)
 ├── data/
-│   ├── raw/                          # Dataset original (inmutable)
-│   └── processed/                    # Datos preprocesados (regenerable)
+│   └── raw/                       # Dataset original (no versionado)
 │
 ├── docs/
-│   └── informe_final.md              # Informe completo de la práctica
+│   └── informe_final.docx         # Informe completo de la práctica
 │
-├── models/
-│   ├── tests/                        # Modelos intermedios de pruebas
-│   └── best_model.pkl                # Mejor modelo seleccionado
+├── models/                        # Modelos persistidos (no versionados)
+│   └── best_model.pkl             # Bundle del mejor modelo (lo genera trainer.py)
 │
 ├── notebooks/
-│   ├── exploracion/                  # Notebooks iterativos (sucios)
-│   │   ├── eda_inicial.ipynb
-│   │   └── pruebas_modelos.ipynb
-│   └── finales/                      # Versiones limpias para presentar
-│       ├── eda_final.ipynb
-│       └── comparativa_modelos.ipynb
+│   └── exploracion/               # Notebooks de EDA, preprocesamiento, modelado y evaluación
+│       ├── 01_eda_inicial.ipynb
+│       ├── 02_preprocesamiento.ipynb
+│       ├── 03_modelado.ipynb
+│       └── 04_evaluacion.ipynb
 │
-├── outputs/                          # Gráficas y resultados generados
+├── resultados/
+│   ├── metricas/                  # Métricas de cada modelo en JSON
+│   └── figuras/                   # Gráficas generadas (PNG)
 │
-└── src/                              # Código fuente del pipeline
+└── src/                           # Código fuente del pipeline
     ├── __init__.py
-    ├── config.py                     # Constantes y rutas
-    ├── data_loader.py                # Carga y preprocesamiento
-    ├── model_trainer.py              # Entrenamiento de modelos
-    ├── evaluator.py                  # Métricas y visualizaciones
-    └── predictor.py                  # Inferencia con modelos entrenados
+    ├── data_loader.py             # Carga, limpieza y preprocesamiento (ColumnTransformer)
+    ├── models.py                  # Entrenamiento de los 5 modelos base + MLflow
+    ├── optimization.py            # Optimización de hiperparámetros (RandomizedSearchCV)
+    ├── evaluation.py              # Gráficas de evaluación
+    ├── metrics_io.py              # Persistencia de métricas en JSON
+    ├── predictor.py               # Inferencia sobre datos crudos
+    ├── api.py                     # API REST con FastAPI (bonus)
+    ├── interpretabilidad.py       # Explicabilidad con SHAP (bonus)
+    ├── analisis_umbral.py         # Umbral óptimo por coste de negocio (bonus)
+    └── experimento_balanceo.py    # Comparativa de técnicas de balanceo (bonus)
 ```
 
 ---
@@ -85,7 +151,7 @@ practica-final-ml/
 
 ### Requisitos previos
 
-- **Python 3.11** (gestionado automáticamente por `uv`)
+- **Python 3.11** (gestionado por `uv`)
 - **[`uv`](https://docs.astral.sh/uv/)** — gestor de entornos y dependencias
 - **git**
 
@@ -93,7 +159,7 @@ practica-final-ml/
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/TU_USUARIO/practica-final-ml.git
+git clone https://github.com/jumarfradev/practica-final-ml.git
 cd practica-final-ml
 
 # 2. Crear el entorno virtual con uv (Python 3.11)
@@ -113,123 +179,150 @@ uv pip install -r requirements.txt
 
 ```bash
 python --version       # Debe mostrar: Python 3.11.x
-python -c "import pandas, sklearn, tensorflow, xgboost; print('OK')"
+python -c "import pandas, sklearn, tensorflow, xgboost, mlflow; print('OK')"
+```
+
+### Colocar el dataset
+
+El dataset no se versiona. Coloca el CSV original en:
+
+```
+data/raw/dataset_practica_final.csv
 ```
 
 ---
 
 ## Cómo ejecutar el proyecto
 
-> _TODO: completar cuando el pipeline esté implementado_
-
-### Pipeline completo
+### 1. Entrenar y seleccionar el mejor modelo
 
 ```bash
-# Entrenar y evaluar todos los modelos, guardar el mejor
+# Flujo completo: 8 modelos (5 base + 3 optimizados) — tarda ~15-30 min
 python trainer.py
+
+# Modo rápido: solo 5 modelos base — tarda ~2-3 min
+python trainer.py --rapido
+
+# Sin registro en MLflow
+python trainer.py --sin-mlflow
 ```
 
-### Predicciones con el modelo entrenado
+Esto entrena, compara, selecciona el mejor por ROC-AUC y guarda el bundle en
+`models/best_model.pkl`.
+
+### 2. Predecir sobre nuevas reservas (CLI)
 
 ```bash
-python -m src.predictor --input ruta/al/csv_nuevo.csv
+python -m src.predictor --input ruta/al/csv_nuevo.csv --output predicciones.csv
 ```
 
-### Exploración con notebooks
+### 3. API REST (bonus)
 
-Los notebooks de `notebooks/exploracion/` documentan el proceso de análisis.
-Los de `notebooks/finales/` son las versiones presentables para la defensa.
+```bash
+uvicorn src.api:app
+```
+
+Documentación interactiva en <http://127.0.0.1:8000/docs>. Endpoints:
+
+- `GET /health` — estado del servicio.
+- `GET /model_info` — metadatos del modelo en producción.
+- `POST /predict` — predicción de una reserva.
+- `POST /predict_batch` — predicción de varias reservas.
+- `POST /predict_explain` — predicción + explicación SHAP de las variables más influyentes.
+
+### 4. Interfaz visual con Streamlit (bonus)
+
+```bash
+# En una terminal, arranca la API:
+uvicorn src.api:app
+# En otra terminal, arranca la interfaz (consume la API):
+streamlit run streamlit_app.py
+```
+
+### 5. Análisis adicionales (bonus)
+
+```bash
+# Umbral óptimo según coste de negocio
+python -m src.analisis_umbral
+
+# Experimento de balanceo de clases (class_weight vs SMOTE)
+python -m src.experimento_balanceo
+
+# Interpretabilidad global con SHAP
+python -m src.interpretabilidad
+
+# Interfaz de MLflow para ver los experimentos
+mlflow ui
+```
+
+### 6. Notebooks
+
+Los notebooks de `notebooks/exploracion/` documentan el proceso: EDA inicial,
+preprocesamiento, modelado y evaluación.
+
+---
+
+## Decisiones técnicas destacadas
+
+- **Eliminación de data leakage:** se descartaron `reservation_status`,
+  `reservation_status_date` y `assigned_room_type`, variables que solo se conocen tras el
+  desenlace de la reserva.
+- **Preprocesamiento con `ColumnTransformer`:** imputación, transformación logarítmica de
+  variables asimétricas (`lead_time`, `adr`), one-hot encoding y reducción top-N de
+  categóricas de alta cardinalidad (`country`, `agent`).
+- **Split estratificado** (`random_state=42`) para preservar la proporción 63/37.
+- **Decisión razonada de no balancear:** un experimento (`src/experimento_balanceo.py`)
+  demuestra que, con desbalanceo moderado, balancear no mejora el ROC-AUC.
+- **Umbral por coste de negocio:** el umbral óptimo se elige minimizando el coste, no
+  fijándolo en 0.5.
 
 ---
 
 ## Roles del equipo
 
-> _TODO: completar tras acordar el reparto con la pareja_
+La práctica se ha desarrollado **en pareja**, combinando trabajo conceptual conjunto
+y ejecución técnica. A lo largo del proyecto se mantuvieron **reuniones de planteamiento
+teórico** en las que se discutió cómo abordar la práctica: el diseño de la arquitectura,
+el enfoque de desarrollo y las decisiones de ejecución.
 
-| Integrante | Responsabilidad principal | Aportaciones concretas |
+El reparto de responsabilidades fue el siguiente:
+
+| Integrante | Rol | Contribución |
 |---|---|---|
-| **[Tu nombre]** | _por definir_ | _por definir_ |
-| **[Pareja]** | _por definir_ | _por definir_ |
+| **Juan Martínez Fraile** | Ejecución práctica e implementación | Desarrollo y ejecución práctica completa del proyecto: implementación del pipeline, los modelos, la evaluación, la API, la interfaz y la documentación. Responsable de la materialización del código en el repositorio. |
+| **David Baos** | Aportación teórica y conceptual | Contribución en el planteamiento teórico de la arquitectura y el desarrollo de la práctica: aportación de ideas de desarrollo y de ejecución, y propuestas para optimizar el enfoque práctico, trabajadas en las reuniones conjuntas. |
 
----
+> **Nota sobre la evaluación:** el historial de commits del repositorio refleja la
+> ejecución práctica, realizada por Juan Martínez Fraile. La contribución de David Baos
+> se centró en el plano conceptual y de diseño (reuniones de planteamiento, aportación de
+> ideas de arquitectura, desarrollo y optimización del enfoque), que por su naturaleza no
+> queda registrada en commits.
 
-## Resultados y conclusiones
-
-> _TODO: completar al finalizar la fase de modelado_
-
-### Métrica principal seleccionada
-
-> _TODO: justificar la elección (accuracy / F1 / AUC-ROC / ...) según el problema de negocio_
-
-### Comparativa de modelos
-
-> _TODO: tabla con accuracy, F1-score, ROC-AUC de los 5+ modelos entrenados_
-
-### Modelo final elegido
-
-> _TODO: nombre del modelo, sus hiperparámetros y razonamiento de la elección_
-
----
-
-## Documentación adicional
-
-- **Informe final completo:** [`docs/informe_final.md`](docs/informe_final.md)
-- **Análisis exploratorio:** [`notebooks/finales/eda_final.ipynb`](notebooks/finales/eda_final.ipynb)
-- **Comparativa de modelos:** [`notebooks/finales/comparativa_modelos.ipynb`](notebooks/finales/comparativa_modelos.ipynb)
 
 ---
 
 ## Tecnologías utilizadas
 
-- **Datos y análisis:** pandas, numpy, matplotlib, seaborn, plotly
-- **Modelos clásicos:** scikit-learn, xgboost, lightgbm
-- **Deep Learning:** tensorflow, keras
-- **Gestión de experimentos:** mlflow _(bonus)_
+- **Datos y análisis:** pandas, numpy, matplotlib
+- **Modelos clásicos:** scikit-learn, xgboost
+- **Deep Learning:** tensorflow / keras
+- **Gestión de experimentos:** mlflow *(bonus)*
+- **API e interfaz:** fastapi, uvicorn, streamlit *(bonus)*
+- **Interpretabilidad y balanceo:** shap, imbalanced-learn *(bonus)*
 - **Entorno y dependencias:** uv, Python 3.11
-- **Calidad de código y DevOps** Black + Ruff (formateo y linting), pre-commit (hooks locales), GitHub Actions (CI: verificación automática en cada push)
+- **Calidad y DevOps:** Black + Ruff (formateo y linting), pre-commit (hooks locales),
+  GitHub Actions (CI), ruleset de protección de `main`.
 
 ---
 
-## Desarrollo
+## Desarrollo y contribución
 
-Si vas a contribuir al código, las herramientas de calidad están configuradas
-automáticamente. Aquí algunos comandos útiles:
-
-### Verificar formato y linting
+El flujo de trabajo (ramas, convenciones de commits, Pull Requests) está documentado en
+[`CONTRIBUTING.md`](CONTRIBUTING.md). Las herramientas de calidad se ejecutan automáticamente:
 
 ```bash
-# Linter (detecta problemas)
-ruff check .
-
-# Formateador (cambia archivos)
-black .
-ruff format .
-
-# Ejecutar todos los hooks de pre-commit manualmente
+ruff check .          # linter
+black .               # formateador
 pre-commit run --all-files
+pre-commit install    # activar los hooks tras clonar
 ```
-
-### Verificar que las dependencias se instalan limpias
-
-```bash
-python -c "import pandas, sklearn, tensorflow, xgboost, lightgbm, keras, mlflow; print('OK')"
-```
-
-### Pre-commit hooks
-
-Tras clonar el repo, ejecuta una vez:
-
-```bash
-pre-commit install
-```
-
-A partir de ahí, cada `git commit` ejecutará automáticamente los checks de calidad.
-
----
-
-## Cómo contribuir
-
-Si trabajas en este proyecto, lee primero la [guía de contribución](CONTRIBUTING.md).
-Define el flujo de ramas, convenciones de commits y cómo abrir Pull Requests.
-
----
