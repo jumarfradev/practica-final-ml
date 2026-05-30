@@ -300,3 +300,46 @@ def predict_explain(reserva: Reserva) -> RespuestaExplicacion:
         etiqueta="Cancela" if pred == 1 else "No cancela",
         explicacion=explicacion,
     )
+
+
+# ============================================================================
+# Endpoint comparativo: prediccion de TODOS los modelos (demostrativo)
+# ============================================================================
+
+# El bundle comparativo se carga de forma perezosa la primera vez que se usa.
+_estado.setdefault("comparador", None)
+
+
+def _obtener_comparador() -> dict:
+    """Carga (una vez) el bundle con todos los modelos. Lanza 503 si no existe."""
+    if _estado.get("comparador") is None:
+        try:
+            from src.comparador import cargar_todos_los_modelos
+
+            _estado["comparador"] = cargar_todos_los_modelos()
+        except FileNotFoundError as e:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Bundle comparativo no disponible: {e}",
+            ) from e
+    return _estado["comparador"]
+
+
+@app.post("/predict_all", tags=["prediccion"])
+def predict_all(reserva: Reserva) -> dict:
+    """Predice la probabilidad de cancelacion de UNA reserva con TODOS los modelos.
+
+    Fines demostrativos: muestra como se comportarian los distintos modelos ante
+    la misma reserva. En produccion se sirve solo el ganador (/predict).
+    """
+    from src.comparador import predecir_con_todos
+
+    bundle = _obtener_comparador()
+    df = _a_dataframe([reserva])
+
+    try:
+        resultados = predecir_con_todos(df, bundle)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al comparar: {e}") from e
+
+    return {"n_modelos": len(resultados), "predicciones": resultados}
