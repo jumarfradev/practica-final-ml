@@ -334,6 +334,11 @@ def main(rapido: bool = False, log_en_mlflow: bool = True) -> None:
         nombres_features,
     )
 
+    # --- 8. Guardar bundle comparativo (todos los modelos, para el Streamlit) ---
+    from src.comparador import guardar_todos_los_modelos
+
+    guardar_todos_los_modelos(resultados, preprocesador, categorias_top_n, nombres_features)
+
     duracion = (datetime.now() - inicio).total_seconds()
     print(f"\nPipeline completado en {duracion:.1f} segundos.")
 

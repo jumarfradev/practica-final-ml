@@ -77,6 +77,25 @@ def predecir_una(reserva: dict) -> dict | None:
     return None
 
 
+def predecir_todos_modelos(reserva: dict) -> dict | None:
+    """Envia una reserva a /predict_all (comparativa de todos los modelos)."""
+    try:
+        r = requests.post(f"{API_URL}/predict_all", json=reserva, timeout=TIMEOUT * 2)
+        if r.status_code == 200:
+            return r.json()
+        if r.status_code == 503:
+            st.info(
+                "La comparativa entre modelos no esta disponible. Requiere haber "
+                "entrenado en modo completo (python trainer.py) para generar "
+                "all_models.pkl."
+            )
+        else:
+            st.error(f"La API devolvio un error {r.status_code}: {r.text}")
+    except requests.exceptions.RequestException as e:
+        st.error(f"No se pudo contactar con la API: {e}")
+    return None
+
+
 def predecir_lote(reservas: list[dict]) -> dict | None:
     """Envia varias reservas a /predict_batch y devuelve la respuesta."""
     try:
@@ -180,6 +199,36 @@ with tab_individual:
         if resultado:
             st.divider()
             mostrar_resultado(resultado)
+
+            # --- Comparativa: como predecirian los demas modelos ---
+            st.divider()
+            st.subheader("Comparativa entre modelos")
+            st.caption(
+                "La prediccion oficial la realiza el modelo ganador. A continuacion, "
+                "con fines demostrativos, se muestra como predeciria cada modelo esta "
+                "misma reserva (en produccion solo se sirve el ganador)."
+            )
+            comparativa = predecir_todos_modelos(reserva)
+            if comparativa and comparativa.get("predicciones"):
+                import pandas as _pd
+
+                df_comp = _pd.DataFrame(comparativa["predicciones"])
+                df_comp["Probabilidad (%)"] = (df_comp["probabilidad_cancelacion"] * 100).round(1)
+                df_comp["Prediccion"] = df_comp["prediccion"].map({1: "Cancela", 0: "No cancela"})
+                df_comp = df_comp.rename(
+                    columns={"modelo": "Modelo", "roc_auc_global": "ROC-AUC global"}
+                )
+
+                # Grafica de barras: probabilidad por modelo
+                grafico = df_comp.set_index("Modelo")["Probabilidad (%)"]
+                st.bar_chart(grafico)
+
+                # Tabla comparativa
+                st.dataframe(
+                    df_comp[["Modelo", "Probabilidad (%)", "Prediccion", "ROC-AUC global"]],
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
 # --- Pestana 2: prediccion por lote (CSV) ---
 with tab_lote:
